@@ -120,6 +120,35 @@ h2 {
   flex-wrap: wrap;
 }
 
+.mode-toggle {
+  width: fit-content;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  margin-bottom: 18px;
+  padding: 5px;
+  border: 1px solid rgba(47, 107, 34, 0.18);
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.mode-toggle button {
+  min-width: 118px;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: transparent;
+  color: #49651f;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.mode-toggle button.active {
+  background: #2f6b22;
+  color: #ffffff;
+  box-shadow: 0 10px 18px rgba(47, 107, 34, 0.2);
+}
+
 .primary-button,
 .secondary-button {
   border: 0;
@@ -196,6 +225,7 @@ h2 {
 
 .room-panel strong {
   color: #263414;
+  overflow-wrap: anywhere;
 }
 
 .room-actions {
@@ -242,6 +272,11 @@ h2 {
 .status-pill.playing {
   background: #e4f8e5;
   color: #216b2a;
+}
+
+.status-pill.multiplayer {
+  background: #e7f9bf;
+  color: #49651f;
 }
 
 .status-pill.gameOver {
@@ -487,6 +522,14 @@ h2 {
   .stats-row,
   .rules-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mode-toggle {
+    width: 100%;
+  }
+
+  .mode-toggle button {
+    min-width: 0;
   }
 
   .field-grid {

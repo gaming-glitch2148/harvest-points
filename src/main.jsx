@@ -307,17 +307,23 @@ function App() {
   }, [score]);
 
   const roomPlayers = useMemo(() => Object.entries(roomData?.players || {}), [roomData]);
-  const opponent = useMemo(
-    () => roomPlayers.find(([roomPlayerId]) => roomPlayerId !== playerId)?.[1] || null,
+  const rivals = useMemo(
+    () => roomPlayers.filter(([roomPlayerId]) => roomPlayerId !== playerId).map(([, roomPlayer]) => roomPlayer),
     [playerId, roomPlayers]
   );
+  const rankedRoomPlayers = useMemo(
+    () => roomPlayers.map(([roomPlayerId, roomPlayer]) => ({ id: roomPlayerId, ...roomPlayer })).sort((a, b) => (b.score || 0) - (a.score || 0)),
+    [roomPlayers]
+  );
+  const roomWinner = rankedRoomPlayers[0] || null;
   const displayedLeaderboard = leaderboard.length > 0 ? leaderboard : localLeaderboard.filter((entry) => entry.score > 0);
   const onlineReady = isSupabaseConfigured && isOnline;
   const onlineStatusText = !isOnline
     ? "Offline. Solo play is available, but online matches need internet."
-    : isSupabaseConfigured
-      ? "Create a room or join with a code."
-      : "Supabase setup is needed for live online play.";
+      : isSupabaseConfigured
+        ? "Create a room or join with a code."
+        : "Supabase setup is needed for live online play.";
+  const isMultiplayer = gameMode === "online";
 
   function startGame() {
     clearRespawnTimers();
@@ -329,6 +335,33 @@ function App() {
     setTiles(makeGrid());
     submittedGameRef.current = null;
     currentGameRef.current = `solo-${Date.now()}`;
+  }
+
+  function selectGameMode(nextMode) {
+    if (nextMode === "solo") {
+      clearRespawnTimers();
+      setGameMode("solo");
+      setRoomCode("");
+      setRoomInput("");
+      setRoomData(null);
+      setOnlineMessage("");
+      setStatus("idle");
+      setScore(0);
+      setSecondsLeft(GAME_SECONDS);
+      setCombo(0);
+      setTiles(makeGrid());
+      submittedGameRef.current = null;
+      currentGameRef.current = null;
+      return;
+    }
+
+    clearRespawnTimers();
+    setGameMode("online");
+    setStatus("idle");
+    setScore(0);
+    setSecondsLeft(GAME_SECONDS);
+    setCombo(0);
+    setTiles(makeGrid());
   }
 
   function resetGame() {
@@ -357,7 +390,7 @@ function App() {
       setRoomCode(nextRoomCode);
       setRoomInput(nextRoomCode);
       setStatus("idle");
-      setOnlineMessage(`Room ${nextRoomCode} created. Share this code with your opponent.`);
+      setOnlineMessage(`Room ${nextRoomCode} created. Share this code with other players.`);
     } catch (error) {
       setOnlineMessage(error.message || "Could not create room.");
     }
@@ -480,28 +513,40 @@ function App() {
             <strong>{combo}x</strong>
           </div>
           <div className="stat-card">
-            <span>Opponent</span>
-            <strong>{gameMode === "online" ? opponent?.score ?? 0 : "--"}</strong>
+            <span>Rivals</span>
+            <strong>{isMultiplayer ? rivals.length : "--"}</strong>
           </div>
         </div>
 
-        <div className="actions">
-          <button className="primary-button" onClick={startGame}>
-            {gameMode === "solo" && status === "playing" ? "Restart Solo" : status === "gameOver" ? "Play Solo Again" : "Start Solo"}
+        <div className="mode-toggle" aria-label="Game mode">
+          <button className={gameMode === "solo" ? "active" : ""} onClick={() => selectGameMode("solo")}>
+            Solo
           </button>
+          <button className={isMultiplayer ? "active" : ""} onClick={() => selectGameMode("online")}>
+            Multi-player
+          </button>
+        </div>
+
+        <div className="actions">
+          {!isMultiplayer && (
+            <button className="primary-button" onClick={startGame}>
+              {status === "playing" ? "Restart Solo" : status === "gameOver" ? "Play Solo Again" : "Start Solo"}
+            </button>
+          )}
           <button className="secondary-button" onClick={resetGame}>
             Reset
           </button>
         </div>
       </section>
 
+      {isMultiplayer && (
       <section className="online-card">
         <div className="field-header">
           <div>
             <h2>Online Match</h2>
             <p>{onlineStatusText}</p>
           </div>
-          <div className={`status-pill ${isOnline ? gameMode : "offline"}`}>{isOnline ? gameMode : "offline"}</div>
+          <div className={`status-pill ${isOnline ? "multiplayer" : "offline"}`}>{isOnline ? "Multi-player" : "offline"}</div>
         </div>
 
         <div className="online-grid">
@@ -530,11 +575,11 @@ function App() {
             </div>
             <div>
               <span>Players</span>
-              <strong>{roomPlayers.length}/2</strong>
+              <strong>{roomPlayers.length}</strong>
             </div>
             <div>
-              <span>Opponent</span>
-              <strong>{opponent?.name || "Waiting"}</strong>
+              <span>Room Roster</span>
+              <strong>{rankedRoomPlayers.map((roomPlayer) => roomPlayer.name).join(", ") || "Waiting"}</strong>
             </div>
             <div className="room-actions">
               <button className="primary-button" onClick={startOnlineMatch} disabled={!onlineReady || roomPlayers.length < 2}>
@@ -547,6 +592,7 @@ function App() {
 
         {onlineMessage && <p className="online-message">{onlineMessage}</p>}
       </section>
+      )}
 
       <section className="game-shell">
         <div className="field-header">
@@ -557,7 +603,9 @@ function App() {
                 ? "Get ready."
                 : status === "playing"
                   ? "Tap crops quickly."
-                  : "Press Start Solo or start an online match."}
+                  : isMultiplayer
+                    ? "Create or join a room to start a match."
+                    : "Press Start Solo to begin."}
             </p>
           </div>
           <div className={`status-pill ${status}`}>{status === "gameOver" ? "Game Over" : status}</div>
@@ -582,13 +630,11 @@ function App() {
           <div className="game-over-panel">
             <h2>{accuracyLabel}</h2>
             <p>Your final score is <strong>{score}</strong>.</p>
-            {gameMode === "online" && opponent && (
+            {isMultiplayer && roomWinner && (
               <p>
-                {score === opponent.score
-                  ? "It is a tie."
-                  : score > opponent.score
-                    ? `You beat ${opponent.name}.`
-                    : `${opponent.name} won this round.`}
+                {score === roomWinner.score
+                  ? "You finished at the top."
+                  : `${roomWinner.name} is leading this round.`}
               </p>
             )}
             <button
