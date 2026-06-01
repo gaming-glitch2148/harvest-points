@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import {
+  createRoom,
+  isFirebaseConfigured,
+  joinRoom,
+  startRoom,
+  submitLeaderboardScore,
+  subscribeToLeaderboard,
+  subscribeToRoom,
+  updateRoomScore
+} from "./firebaseGame";
 import "./styles.css";
 
 const GAME_SECONDS = 45;
@@ -7,6 +17,8 @@ const GRID_SIZE = 20;
 const CROP_RESPAWN_MS = 120;
 const FIELD_GROWTH_MS = 650;
 const MIN_WHEAT_TILES = 4;
+const PLAYER_ID_KEY = "harvest-points-player-id";
+const PLAYER_NAME_KEY = "harvest-points-player-name";
 
 const CROP_TYPES = [
   { type: "wheat", label: "🌾", name: "Wheat", points: 10, weight: 55, className: "wheat" },
@@ -92,6 +104,23 @@ function getStoredHighScore() {
   return Number.isFinite(value) ? value : 0;
 }
 
+function getStoredPlayerId() {
+  const existingId = window.localStorage.getItem(PLAYER_ID_KEY);
+  if (existingId) return existingId;
+
+  const newId = window.crypto?.randomUUID?.() || `player-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  window.localStorage.setItem(PLAYER_ID_KEY, newId);
+  return newId;
+}
+
+function getStoredPlayerName() {
+  return window.localStorage.getItem(PLAYER_NAME_KEY) || "Player";
+}
+
+function makeRoomCode() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
 function App() {
   const [status, setStatus] = useState("idle");
   const [score, setScore] = useState(0);
@@ -99,7 +128,20 @@ function App() {
   const [tiles, setTiles] = useState(() => makeGrid());
   const [highScore, setHighScore] = useState(0);
   const [combo, setCombo] = useState(0);
+  const [playerId] = useState(() => getStoredPlayerId());
+  const [playerName, setPlayerName] = useState(() => getStoredPlayerName());
+  const [gameMode, setGameMode] = useState("solo");
+  const [roomCode, setRoomCode] = useState("");
+  const [roomInput, setRoomInput] = useState("");
+  const [roomData, setRoomData] = useState(null);
+  const [onlineMessage, setOnlineMessage] = useState("");
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [localLeaderboard, setLocalLeaderboard] = useState([]);
   const respawnTimers = useRef(new Map());
+  const submittedGameRef = useRef(null);
+  const activeRoomStartRef = useRef(null);
+  const currentGameRef = useRef(null);
+  const scoreRef = useRef(0);
 
   function clearRespawnTimers() {
     respawnTimers.current.forEach((timerId) => window.clearTimeout(timerId));
@@ -108,12 +150,41 @@ function App() {
 
   useEffect(() => {
     setHighScore(getStoredHighScore());
+    setLocalLeaderboard([
+      {
+        id: "local-best",
+        name: getStoredPlayerName(),
+        score: getStoredHighScore(),
+        mode: "solo"
+      }
+    ]);
   }, []);
 
   useEffect(() => clearRespawnTimers, []);
 
   useEffect(() => {
-    if (status !== "playing") return;
+    scoreRef.current = score;
+  }, [score]);
+
+  useEffect(() => {
+    window.localStorage.setItem(PLAYER_NAME_KEY, playerName.trim() || "Player");
+  }, [playerName]);
+
+  useEffect(() => {
+    return subscribeToLeaderboard(setLeaderboard);
+  }, []);
+
+  useEffect(() => {
+    if (!roomCode) {
+      setRoomData(null);
+      return undefined;
+    }
+
+    return subscribeToRoom(roomCode, setRoomData);
+  }, [roomCode]);
+
+  useEffect(() => {
+    if (status !== "playing" || gameMode === "online") return;
 
     const interval = window.setInterval(() => {
       setSecondsLeft((current) => {
@@ -128,7 +199,50 @@ function App() {
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, [status]);
+  }, [status, gameMode]);
+
+  useEffect(() => {
+    if (gameMode !== "online" || roomData?.status !== "playing" || !roomData.startedAt) return;
+    if (activeRoomStartRef.current === roomData.startedAt) return;
+
+    activeRoomStartRef.current = roomData.startedAt;
+    clearRespawnTimers();
+    setStatus("countdown");
+    setScore(0);
+    setSecondsLeft(GAME_SECONDS);
+    setCombo(0);
+    setTiles(makeGrid());
+    submittedGameRef.current = null;
+    currentGameRef.current = `${roomCode}-${roomData.startedAt}`;
+    updateRoomScore(roomCode, playerId, 0, false);
+  }, [gameMode, playerId, roomCode, roomData?.startedAt, roomData?.status]);
+
+  useEffect(() => {
+    if (gameMode !== "online" || !roomData?.startedAt || (status !== "countdown" && status !== "playing")) return;
+
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      const startTime = roomData.startedAt;
+      const endTime = startTime + GAME_SECONDS * 1000;
+
+      if (now < startTime) {
+        setStatus("countdown");
+        setSecondsLeft(GAME_SECONDS);
+        return;
+      }
+
+      const nextSeconds = Math.max(0, Math.ceil((endTime - now) / 1000));
+      setStatus(nextSeconds > 0 ? "playing" : "gameOver");
+      setSecondsLeft(nextSeconds);
+
+      if (nextSeconds <= 0) {
+        window.clearInterval(interval);
+        updateRoomScore(roomCode, playerId, scoreRef.current, true);
+      }
+    }, 250);
+
+    return () => window.clearInterval(interval);
+  }, [gameMode, playerId, roomCode, roomData?.startedAt, status]);
 
   useEffect(() => {
     if (status !== "playing") return;
@@ -147,7 +261,23 @@ function App() {
       setHighScore(score);
       window.localStorage.setItem("harvest-points-high-score", String(score));
     }
-  }, [status, score, highScore]);
+
+    const gameKey = currentGameRef.current || `${gameMode}-${roomCode || "local"}`;
+    if (submittedGameRef.current === gameKey) return;
+
+    submittedGameRef.current = gameKey;
+    submitLeaderboardScore(playerName.trim() || "Player", score, gameMode);
+    setLocalLeaderboard((currentScores) =>
+      [{ id: gameKey, name: playerName.trim() || "Player", score, mode: gameMode }, ...currentScores]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10)
+    );
+  }, [gameMode, highScore, playerName, roomCode, roomData?.startedAt, score, status]);
+
+  useEffect(() => {
+    if (gameMode !== "online" || !roomCode || status !== "playing") return;
+    updateRoomScore(roomCode, playerId, score, false);
+  }, [gameMode, playerId, roomCode, score, status]);
 
   const accuracyLabel = useMemo(() => {
     if (score >= 250) return "Master Harvester";
@@ -157,13 +287,24 @@ function App() {
     return "Watch the corn!";
   }, [score]);
 
+  const roomPlayers = useMemo(() => Object.entries(roomData?.players || {}), [roomData]);
+  const opponent = useMemo(
+    () => roomPlayers.find(([roomPlayerId]) => roomPlayerId !== playerId)?.[1] || null,
+    [playerId, roomPlayers]
+  );
+  const displayedLeaderboard = leaderboard.length > 0 ? leaderboard : localLeaderboard.filter((entry) => entry.score > 0);
+  const onlineReady = isFirebaseConfigured;
+
   function startGame() {
     clearRespawnTimers();
+    setGameMode("solo");
     setStatus("playing");
     setScore(0);
     setSecondsLeft(GAME_SECONDS);
     setCombo(0);
     setTiles(makeGrid());
+    submittedGameRef.current = null;
+    currentGameRef.current = `solo-${Date.now()}`;
   }
 
   function resetGame() {
@@ -173,6 +314,75 @@ function App() {
     setSecondsLeft(GAME_SECONDS);
     setCombo(0);
     setTiles(makeGrid());
+    submittedGameRef.current = null;
+    currentGameRef.current = null;
+  }
+
+  async function createOnlineRoom() {
+    if (!onlineReady) {
+      setOnlineMessage("Add Firebase environment variables to enable online play.");
+      return;
+    }
+
+    const nextRoomCode = makeRoomCode();
+    const name = playerName.trim() || "Player";
+
+    try {
+      await createRoom(nextRoomCode, playerId, name);
+      setGameMode("online");
+      setRoomCode(nextRoomCode);
+      setRoomInput(nextRoomCode);
+      setStatus("idle");
+      setOnlineMessage(`Room ${nextRoomCode} created. Share this code with your opponent.`);
+    } catch (error) {
+      setOnlineMessage(error.message || "Could not create room.");
+    }
+  }
+
+  async function joinOnlineRoom() {
+    if (!onlineReady) {
+      setOnlineMessage("Add Firebase environment variables to enable online play.");
+      return;
+    }
+
+    const nextRoomCode = roomInput.trim().toUpperCase();
+    if (!nextRoomCode) {
+      setOnlineMessage("Enter a room code first.");
+      return;
+    }
+
+    try {
+      await joinRoom(nextRoomCode, playerId, playerName.trim() || "Player");
+      setGameMode("online");
+      setRoomCode(nextRoomCode);
+      setStatus("idle");
+      setOnlineMessage(`Joined room ${nextRoomCode}.`);
+    } catch (error) {
+      setOnlineMessage(error.message || "Could not join room.");
+    }
+  }
+
+  async function startOnlineMatch() {
+    if (!roomCode) {
+      setOnlineMessage("Create or join a room first.");
+      return;
+    }
+
+    try {
+      await startRoom(roomCode);
+      setOnlineMessage("Match starting.");
+    } catch (error) {
+      setOnlineMessage(error.message || "Could not start match.");
+    }
+  }
+
+  function leaveOnlineRoom() {
+    setGameMode("solo");
+    setRoomCode("");
+    setRoomInput("");
+    setRoomData(null);
+    setOnlineMessage("");
+    resetGame();
   }
 
   function cutCrop(tileId) {
@@ -240,11 +450,15 @@ function App() {
             <span>Combo</span>
             <strong>{combo}x</strong>
           </div>
+          <div className="stat-card">
+            <span>Opponent</span>
+            <strong>{gameMode === "online" ? opponent?.score ?? 0 : "--"}</strong>
+          </div>
         </div>
 
         <div className="actions">
           <button className="primary-button" onClick={startGame}>
-            {status === "playing" ? "Restart Game" : status === "gameOver" ? "Play Again" : "Start Game"}
+            {gameMode === "solo" && status === "playing" ? "Restart Solo" : status === "gameOver" ? "Play Solo Again" : "Start Solo"}
           </button>
           <button className="secondary-button" onClick={resetGame}>
             Reset
@@ -252,11 +466,70 @@ function App() {
         </div>
       </section>
 
+      <section className="online-card">
+        <div className="field-header">
+          <div>
+            <h2>Online Match</h2>
+            <p>{onlineReady ? "Create a room or join with a code." : "Firebase setup is needed for live online play."}</p>
+          </div>
+          <div className={`status-pill ${gameMode}`}>{gameMode}</div>
+        </div>
+
+        <div className="online-grid">
+          <label className="input-field">
+            <span>Your Name</span>
+            <input value={playerName} maxLength="18" onChange={(event) => setPlayerName(event.target.value)} />
+          </label>
+          <label className="input-field">
+            <span>Room Code</span>
+            <input
+              value={roomInput}
+              maxLength="8"
+              onChange={(event) => setRoomInput(event.target.value.toUpperCase())}
+              placeholder="ABC123"
+            />
+          </label>
+          <button className="secondary-button" onClick={createOnlineRoom}>Create Room</button>
+          <button className="secondary-button" onClick={joinOnlineRoom}>Join Room</button>
+        </div>
+
+        {roomCode && (
+          <div className="room-panel">
+            <div>
+              <span>Room</span>
+              <strong>{roomCode}</strong>
+            </div>
+            <div>
+              <span>Players</span>
+              <strong>{roomPlayers.length}/2</strong>
+            </div>
+            <div>
+              <span>Opponent</span>
+              <strong>{opponent?.name || "Waiting"}</strong>
+            </div>
+            <div className="room-actions">
+              <button className="primary-button" onClick={startOnlineMatch} disabled={roomPlayers.length < 2}>
+                Start Match
+              </button>
+              <button className="secondary-button" onClick={leaveOnlineRoom}>Leave</button>
+            </div>
+          </div>
+        )}
+
+        {onlineMessage && <p className="online-message">{onlineMessage}</p>}
+      </section>
+
       <section className="game-shell">
         <div className="field-header">
           <div>
             <h2>Crop Field</h2>
-            <p>{status === "playing" ? "Tap crops quickly." : "Press Start Game to begin."}</p>
+            <p>
+              {status === "countdown"
+                ? "Get ready."
+                : status === "playing"
+                  ? "Tap crops quickly."
+                  : "Press Start Solo or start an online match."}
+            </p>
           </div>
           <div className={`status-pill ${status}`}>{status === "gameOver" ? "Game Over" : status}</div>
         </div>
@@ -280,9 +553,38 @@ function App() {
           <div className="game-over-panel">
             <h2>{accuracyLabel}</h2>
             <p>Your final score is <strong>{score}</strong>.</p>
-            <button className="primary-button" onClick={startGame}>Play Again</button>
+            {gameMode === "online" && opponent && (
+              <p>
+                {score === opponent.score
+                  ? "It is a tie."
+                  : score > opponent.score
+                    ? `You beat ${opponent.name}.`
+                    : `${opponent.name} won this round.`}
+              </p>
+            )}
+            <button className="primary-button" onClick={gameMode === "online" ? startOnlineMatch : startGame}>
+              {gameMode === "online" ? "Rematch" : "Play Again"}
+            </button>
           </div>
         )}
+      </section>
+
+      <section className="leaderboard-card">
+        <h2>Leaderboard</h2>
+        <div className="leaderboard-list">
+          {displayedLeaderboard.length > 0 ? (
+            displayedLeaderboard.map((entry, index) => (
+              <div className="leaderboard-row" key={entry.id || `${entry.name}-${entry.score}-${index}`}>
+                <span>{index + 1}</span>
+                <strong>{entry.name || "Player"}</strong>
+                <em>{entry.mode || "solo"}</em>
+                <b>{entry.score}</b>
+              </div>
+            ))
+          ) : (
+            <p className="empty-state">{onlineReady ? "Scores will appear after the first game." : "Online leaderboard appears after Firebase setup."}</p>
+          )}
+        </div>
       </section>
 
       <section className="rules-card">

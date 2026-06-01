@@ -30,6 +30,8 @@ button {
 
 .hero-card,
 .game-shell,
+.online-card,
+.leaderboard-card,
 .rules-card {
   width: min(1100px, 100%);
   margin: 0 auto;
@@ -40,7 +42,9 @@ button {
   backdrop-filter: blur(14px);
 }
 
-.hero-card {
+.hero-card,
+.online-card,
+.leaderboard-card {
   padding: 34px;
 }
 
@@ -85,7 +89,7 @@ h2 {
 
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
   gap: 14px;
   margin-bottom: 24px;
 }
@@ -141,6 +145,71 @@ h2 {
 .primary-button:hover,
 .secondary-button:hover {
   transform: translateY(-2px);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+}
+
+.online-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr)) repeat(2, auto);
+  gap: 12px;
+  align-items: end;
+}
+
+.input-field span,
+.room-panel span {
+  display: block;
+  margin-bottom: 6px;
+  color: #6e7d50;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.input-field input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(47, 107, 34, 0.22);
+  border-radius: 14px;
+  padding: 11px 13px;
+  color: #263414;
+  background: #ffffff;
+  font: inherit;
+  font-weight: 800;
+}
+
+.room-panel {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid rgba(47, 107, 34, 0.16);
+  border-radius: 18px;
+  background: #ffffff;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(110px, 1fr)) auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.room-panel strong {
+  color: #263414;
+}
+
+.room-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.online-message,
+.empty-state {
+  margin: 14px 0 0;
+  color: #5d6b42;
+  font-weight: 700;
 }
 
 .game-shell {
@@ -294,6 +363,49 @@ h2 {
   padding: 24px;
 }
 
+.leaderboard-list {
+  display: grid;
+  gap: 10px;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 80px 80px;
+  gap: 12px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid rgba(94, 119, 54, 0.14);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.leaderboard-row span {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #eef7d8;
+  color: #49651f;
+  font-weight: 900;
+}
+
+.leaderboard-row strong {
+  color: #263414;
+}
+
+.leaderboard-row em {
+  color: #6e7d50;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.leaderboard-row b {
+  color: #166534;
+  text-align: right;
+}
+
 .rules-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -329,17 +441,30 @@ h2 {
 
   .hero-card,
   .game-shell,
+  .online-card,
+  .leaderboard-card,
   .rules-card {
     border-radius: 22px;
   }
 
-  .hero-card {
+  .hero-card,
+  .online-card,
+  .leaderboard-card {
     padding: 24px;
   }
 
   .stats-row,
   .rules-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .online-grid,
+  .room-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .room-actions {
+    justify-content: flex-start;
   }
 
   .field-grid {
@@ -361,5 +486,15 @@ h2 {
 
   .field-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .online-grid,
+  .room-panel,
+  .leaderboard-row {
+    grid-template-columns: 1fr;
+  }
+
+  .leaderboard-row b {
+    text-align: left;
   }
 }
