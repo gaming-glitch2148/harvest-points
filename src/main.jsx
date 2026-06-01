@@ -5,6 +5,8 @@ import "./styles.css";
 const GAME_SECONDS = 45;
 const GRID_SIZE = 20;
 const CROP_RESPAWN_MS = 120;
+const FIELD_GROWTH_MS = 650;
+const MIN_WHEAT_TILES = 4;
 
 const CROP_TYPES = [
   { type: "wheat", label: "🌾", name: "Wheat", points: 10, weight: 55, className: "wheat" },
@@ -40,7 +42,49 @@ function makeTile(id) {
 }
 
 function makeGrid() {
-  return Array.from({ length: GRID_SIZE }, (_, index) => makeTile(index + 1));
+  return keepWheatAvailable(Array.from({ length: GRID_SIZE }, (_, index) => makeTile(index + 1)));
+}
+
+function isWheatCrop(crop) {
+  return crop.type === "wheat" || crop.type === "goldenWheat";
+}
+
+function makeWheatTile(id) {
+  return {
+    id,
+    crop: CROP_TYPES[0],
+    lastResult: null
+  };
+}
+
+function keepWheatAvailable(tiles) {
+  const wheatCount = tiles.filter((tile) => isWheatCrop(tile.crop)).length;
+  const missingWheat = MIN_WHEAT_TILES - wheatCount;
+
+  if (missingWheat <= 0) return tiles;
+
+  let plantedWheat = 0;
+
+  return tiles.map((tile) => {
+    if (plantedWheat >= missingWheat || tile.crop.type === "harvested" || isWheatCrop(tile.crop)) {
+      return tile;
+    }
+
+    plantedWheat += 1;
+    return makeWheatTile(tile.id);
+  });
+}
+
+function growField(tiles) {
+  return keepWheatAvailable(
+    tiles.map((tile) => {
+      if (tile.crop.type === "harvested" || isWheatCrop(tile.crop) || Math.random() > 0.3) {
+        return tile;
+      }
+
+      return makeTile(tile.id);
+    })
+  );
 }
 
 function getStoredHighScore() {
@@ -82,6 +126,16 @@ function App() {
         return current - 1;
       });
     }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [status]);
+
+  useEffect(() => {
+    if (status !== "playing") return;
+
+    const interval = window.setInterval(() => {
+      setTiles((currentTiles) => growField(currentTiles));
+    }, FIELD_GROWTH_MS);
 
     return () => window.clearInterval(interval);
   }, [status]);
@@ -151,7 +205,9 @@ function App() {
     const timerId = window.setTimeout(() => {
       respawnTimers.current.delete(tileId);
       setTiles((tilesToRespawn) =>
-        tilesToRespawn.map((respawnTile) => (respawnTile.id === tileId ? makeTile(respawnTile.id) : respawnTile))
+        keepWheatAvailable(
+          tilesToRespawn.map((respawnTile) => (respawnTile.id === tileId ? makeTile(respawnTile.id) : respawnTile))
+        )
       );
     }, CROP_RESPAWN_MS);
 
