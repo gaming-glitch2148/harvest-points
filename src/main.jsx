@@ -17,6 +17,7 @@ const GRID_SIZE = 20;
 const CROP_RESPAWN_MS = 120;
 const FIELD_GROWTH_MS = 650;
 const MIN_WHEAT_TILES = 4;
+const ONLINE_CHECK_MS = 10000;
 const PLAYER_ID_KEY = "harvest-points-player-id";
 const PLAYER_NAME_KEY = "harvest-points-player-name";
 
@@ -168,10 +169,13 @@ function App() {
       setIsOnline(navigator.onLine);
     }
 
+    const interval = window.setInterval(updateOnlineStatus, ONLINE_CHECK_MS);
+
     window.addEventListener("online", updateOnlineStatus);
     window.addEventListener("offline", updateOnlineStatus);
 
     return () => {
+      window.clearInterval(interval);
       window.removeEventListener("online", updateOnlineStatus);
       window.removeEventListener("offline", updateOnlineStatus);
     };

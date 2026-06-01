@@ -1,4 +1,4 @@
-const CACHE_NAME = "harvest-points-v5";
+const CACHE_NAME = "harvest-points-v6";
 const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
