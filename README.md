@@ -23,34 +23,46 @@ Open the local Vite URL shown in the terminal.
 
 ## Online play setup
 
-Online matches and the shared leaderboard use Firebase Realtime Database.
+Online matches and the shared leaderboard use Supabase.
 
-1. Create a Firebase project.
-2. Add a Web app in Firebase project settings.
-3. Create a Realtime Database.
-4. Copy `.env.example` to `.env.local`.
-5. Fill in the `VITE_FIREBASE_*` values from the Firebase Web app config.
-6. Restart `npm run dev`.
+1. Create a Supabase project.
+2. Open the SQL editor.
+3. Run this setup SQL:
 
-For a simple public prototype, use these Realtime Database rules:
+```sql
+create table if not exists public.rooms (
+  code text primary key,
+  status text not null default 'waiting',
+  started_at bigint,
+  players jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
 
-```json
-{
-  "rules": {
-    "rooms": {
-      ".read": true,
-      ".write": true
-    },
-    "leaderboard": {
-      ".read": true,
-      ".write": true,
-      ".indexOn": ["score"]
-    }
-  }
-}
+create table if not exists public.leaderboard (
+  id bigint generated always as identity primary key,
+  name text not null,
+  score integer not null,
+  mode text not null default 'solo',
+  created_at timestamptz not null default now()
+);
+
+alter table public.rooms enable row level security;
+alter table public.leaderboard enable row level security;
+
+create policy "public rooms read" on public.rooms for select using (true);
+create policy "public rooms insert" on public.rooms for insert with check (true);
+create policy "public rooms update" on public.rooms for update using (true) with check (true);
+
+create policy "public leaderboard read" on public.leaderboard for select using (true);
+create policy "public leaderboard insert" on public.leaderboard for insert with check (true);
 ```
 
-These rules are intentionally open for quick testing. Tighten them before sharing the app widely.
+4. In Supabase, enable Realtime for the `rooms` and `leaderboard` tables.
+5. Copy `.env.example` to `.env.local`.
+6. Fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from Supabase project settings.
+7. Restart `npm run dev`.
+
+These policies are intentionally open for quick testing. Tighten them before sharing the app widely.
 
 ## Production build
 
@@ -69,5 +81,5 @@ npm run preview
    - Framework Preset: Vite
    - Build Command: `npm run build`
    - Output Directory: `dist`
-6. Add the same `VITE_FIREBASE_*` environment variables in Vercel.
+6. Add the same `VITE_SUPABASE_*` environment variables in Vercel.
 7. Deploy.

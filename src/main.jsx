@@ -2,14 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   createRoom,
-  isFirebaseConfigured,
+  isSupabaseConfigured,
   joinRoom,
   startRoom,
   submitLeaderboardScore,
   subscribeToLeaderboard,
   subscribeToRoom,
   updateRoomScore
-} from "./firebaseGame";
+} from "./supabaseGame";
 import "./styles.css";
 
 const GAME_SECONDS = 45;
@@ -293,7 +293,7 @@ function App() {
     [playerId, roomPlayers]
   );
   const displayedLeaderboard = leaderboard.length > 0 ? leaderboard : localLeaderboard.filter((entry) => entry.score > 0);
-  const onlineReady = isFirebaseConfigured;
+  const onlineReady = isSupabaseConfigured;
 
   function startGame() {
     clearRespawnTimers();
@@ -320,7 +320,7 @@ function App() {
 
   async function createOnlineRoom() {
     if (!onlineReady) {
-      setOnlineMessage("Add Firebase environment variables to enable online play.");
+      setOnlineMessage("Add Supabase environment variables to enable online play.");
       return;
     }
 
@@ -341,7 +341,7 @@ function App() {
 
   async function joinOnlineRoom() {
     if (!onlineReady) {
-      setOnlineMessage("Add Firebase environment variables to enable online play.");
+      setOnlineMessage("Add Supabase environment variables to enable online play.");
       return;
     }
 
@@ -470,7 +470,7 @@ function App() {
         <div className="field-header">
           <div>
             <h2>Online Match</h2>
-            <p>{onlineReady ? "Create a room or join with a code." : "Firebase setup is needed for live online play."}</p>
+            <p>{onlineReady ? "Create a room or join with a code." : "Supabase setup is needed for live online play."}</p>
           </div>
           <div className={`status-pill ${gameMode}`}>{gameMode}</div>
         </div>
@@ -582,7 +582,7 @@ function App() {
               </div>
             ))
           ) : (
-            <p className="empty-state">{onlineReady ? "Scores will appear after the first game." : "Online leaderboard appears after Firebase setup."}</p>
+            <p className="empty-state">{onlineReady ? "Scores will appear after the first game." : "Online leaderboard appears after Supabase setup."}</p>
           )}
         </div>
       </section>
