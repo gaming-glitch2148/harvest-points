@@ -137,6 +137,7 @@ function App() {
   const [onlineMessage, setOnlineMessage] = useState("");
   const [leaderboard, setLeaderboard] = useState([]);
   const [localLeaderboard, setLocalLeaderboard] = useState([]);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const respawnTimers = useRef(new Map());
   const submittedGameRef = useRef(null);
   const activeRoomStartRef = useRef(null);
@@ -161,6 +162,20 @@ function App() {
   }, []);
 
   useEffect(() => clearRespawnTimers, []);
+
+  useEffect(() => {
+    function updateOnlineStatus() {
+      setIsOnline(navigator.onLine);
+    }
+
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+    };
+  }, []);
 
   useEffect(() => {
     scoreRef.current = score;
@@ -293,7 +308,12 @@ function App() {
     [playerId, roomPlayers]
   );
   const displayedLeaderboard = leaderboard.length > 0 ? leaderboard : localLeaderboard.filter((entry) => entry.score > 0);
-  const onlineReady = isSupabaseConfigured;
+  const onlineReady = isSupabaseConfigured && isOnline;
+  const onlineStatusText = !isOnline
+    ? "Offline. Solo play is available, but online matches need internet."
+    : isSupabaseConfigured
+      ? "Create a room or join with a code."
+      : "Supabase setup is needed for live online play.";
 
   function startGame() {
     clearRespawnTimers();
@@ -320,7 +340,7 @@ function App() {
 
   async function createOnlineRoom() {
     if (!onlineReady) {
-      setOnlineMessage("Add Supabase environment variables to enable online play.");
+      setOnlineMessage(isOnline ? "Add Supabase environment variables to enable online play." : "Online matches need internet.");
       return;
     }
 
@@ -341,7 +361,7 @@ function App() {
 
   async function joinOnlineRoom() {
     if (!onlineReady) {
-      setOnlineMessage("Add Supabase environment variables to enable online play.");
+      setOnlineMessage(isOnline ? "Add Supabase environment variables to enable online play." : "Online matches need internet.");
       return;
     }
 
@@ -363,6 +383,11 @@ function App() {
   }
 
   async function startOnlineMatch() {
+    if (!onlineReady) {
+      setOnlineMessage(isOnline ? "Add Supabase environment variables to enable online play." : "Online matches need internet.");
+      return;
+    }
+
     if (!roomCode) {
       setOnlineMessage("Create or join a room first.");
       return;
@@ -470,9 +495,9 @@ function App() {
         <div className="field-header">
           <div>
             <h2>Online Match</h2>
-            <p>{onlineReady ? "Create a room or join with a code." : "Supabase setup is needed for live online play."}</p>
+            <p>{onlineStatusText}</p>
           </div>
-          <div className={`status-pill ${gameMode}`}>{gameMode}</div>
+          <div className={`status-pill ${isOnline ? gameMode : "offline"}`}>{isOnline ? gameMode : "offline"}</div>
         </div>
 
         <div className="online-grid">
@@ -489,8 +514,8 @@ function App() {
               placeholder="ABC123"
             />
           </label>
-          <button className="secondary-button" onClick={createOnlineRoom}>Create Room</button>
-          <button className="secondary-button" onClick={joinOnlineRoom}>Join Room</button>
+          <button className="secondary-button" onClick={createOnlineRoom} disabled={!onlineReady}>Create Room</button>
+          <button className="secondary-button" onClick={joinOnlineRoom} disabled={!onlineReady}>Join Room</button>
         </div>
 
         {roomCode && (
@@ -508,7 +533,7 @@ function App() {
               <strong>{opponent?.name || "Waiting"}</strong>
             </div>
             <div className="room-actions">
-              <button className="primary-button" onClick={startOnlineMatch} disabled={roomPlayers.length < 2}>
+              <button className="primary-button" onClick={startOnlineMatch} disabled={!onlineReady || roomPlayers.length < 2}>
                 Start Match
               </button>
               <button className="secondary-button" onClick={leaveOnlineRoom}>Leave</button>
@@ -562,7 +587,11 @@ function App() {
                     : `${opponent.name} won this round.`}
               </p>
             )}
-            <button className="primary-button" onClick={gameMode === "online" ? startOnlineMatch : startGame}>
+            <button
+              className="primary-button"
+              onClick={gameMode === "online" ? startOnlineMatch : startGame}
+              disabled={gameMode === "online" && !onlineReady}
+            >
               {gameMode === "online" ? "Rematch" : "Play Again"}
             </button>
           </div>
@@ -582,7 +611,11 @@ function App() {
               </div>
             ))
           ) : (
-            <p className="empty-state">{onlineReady ? "Scores will appear after the first game." : "Online leaderboard appears after Supabase setup."}</p>
+            <p className="empty-state">
+              {isOnline
+                ? "Scores will appear after the first game."
+                : "Online leaderboard updates when you are back online."}
+            </p>
           )}
         </div>
       </section>

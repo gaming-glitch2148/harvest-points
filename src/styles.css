@@ -249,6 +249,11 @@ h2 {
   color: #925d00;
 }
 
+.status-pill.offline {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(58px, 1fr));
