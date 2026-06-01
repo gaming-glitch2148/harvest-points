@@ -1,0 +1,18 @@
+{
+  "name": "Harvest Points",
+  "short_name": "Harvest",
+  "description": "Cut wheat for points and avoid the other crops.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f5f7e8",
+  "theme_color": "#2f6b22",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

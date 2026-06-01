@@ -239,6 +239,14 @@ h2 {
   opacity: 0.22;
 }
 
+.crop-tile.harvested {
+  transform: scale(0.96);
+}
+
+.crop-tile.harvested::before {
+  opacity: 0.42;
+}
+
 .points-pop {
   position: absolute;
   z-index: 2;

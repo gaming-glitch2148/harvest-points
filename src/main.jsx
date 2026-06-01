@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 const GAME_SECONDS = 45;
 const GRID_SIZE = 20;
+const CROP_RESPAWN_MS = 120;
 
 const CROP_TYPES = [
   { type: "wheat", label: "🌾", name: "Wheat", points: 10, weight: 55, className: "wheat" },
@@ -13,6 +14,7 @@ const CROP_TYPES = [
   { type: "goldenWheat", label: "✨🌾", name: "Golden Wheat", points: 30, weight: 3, className: "golden" },
   { type: "empty", label: "🟫", name: "Empty Soil", points: 0, weight: 2, className: "empty" }
 ];
+const HARVESTED_CROP = { type: "harvested", label: "", name: "Freshly Cut Soil", points: 0, weight: 0, className: "empty harvested" };
 
 const TOTAL_WEIGHT = CROP_TYPES.reduce((sum, crop) => sum + crop.weight, 0);
 
@@ -53,10 +55,18 @@ function App() {
   const [tiles, setTiles] = useState(() => makeGrid());
   const [highScore, setHighScore] = useState(0);
   const [combo, setCombo] = useState(0);
+  const respawnTimers = useRef(new Map());
+
+  function clearRespawnTimers() {
+    respawnTimers.current.forEach((timerId) => window.clearTimeout(timerId));
+    respawnTimers.current.clear();
+  }
 
   useEffect(() => {
     setHighScore(getStoredHighScore());
   }, []);
+
+  useEffect(() => clearRespawnTimers, []);
 
   useEffect(() => {
     if (status !== "playing") return;
@@ -94,6 +104,7 @@ function App() {
   }, [score]);
 
   function startGame() {
+    clearRespawnTimers();
     setStatus("playing");
     setScore(0);
     setSecondsLeft(GAME_SECONDS);
@@ -102,6 +113,7 @@ function App() {
   }
 
   function resetGame() {
+    clearRespawnTimers();
     setStatus("idle");
     setScore(0);
     setSecondsLeft(GAME_SECONDS);
@@ -112,25 +124,38 @@ function App() {
   function cutCrop(tileId) {
     if (status !== "playing") return;
 
+    const tile = tiles.find((currentTile) => currentTile.id === tileId);
+    if (!tile || tile.crop.type === "harvested") return;
+
+    const points = tile.crop.points;
+    setScore((currentScore) => Math.max(0, currentScore + points));
+
+    if (tile.crop.type === "wheat" || tile.crop.type === "goldenWheat") {
+      setCombo((currentCombo) => currentCombo + 1);
+    } else if (tile.crop.type !== "empty") {
+      setCombo(0);
+    }
+
     setTiles((currentTiles) =>
-      currentTiles.map((tile) => {
-        if (tile.id !== tileId) return tile;
-
-        const points = tile.crop.points;
-        setScore((currentScore) => Math.max(0, currentScore + points));
-
-        if (tile.crop.type === "wheat" || tile.crop.type === "goldenWheat") {
-          setCombo((currentCombo) => currentCombo + 1);
-        } else if (tile.crop.type !== "empty") {
-          setCombo(0);
-        }
-
-        return {
-          ...makeTile(tile.id),
-          lastResult: points > 0 ? `+${points}` : points < 0 ? `${points}` : "0"
-        };
-      })
+      currentTiles.map((currentTile) =>
+        currentTile.id === tileId
+          ? {
+              ...currentTile,
+              crop: HARVESTED_CROP,
+              lastResult: points > 0 ? `+${points}` : points < 0 ? `${points}` : "0"
+            }
+          : currentTile
+      )
     );
+
+    const timerId = window.setTimeout(() => {
+      respawnTimers.current.delete(tileId);
+      setTiles((tilesToRespawn) =>
+        tilesToRespawn.map((respawnTile) => (respawnTile.id === tileId ? makeTile(respawnTile.id) : respawnTile))
+      );
+    }, CROP_RESPAWN_MS);
+
+    respawnTimers.current.set(tileId, timerId);
   }
 
   return (
@@ -218,3 +243,9 @@ function App() {
 }
 
 createRoot(document.getElementById("root")).render(<App />);
+
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js");
+  });
+}
