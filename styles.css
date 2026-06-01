@@ -1,0 +1,357 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1f2933;
+  background: #f5f7e8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button {
+  font: inherit;
+}
+
+.game-page {
+  min-height: 100vh;
+  padding: 28px;
+  display: grid;
+  gap: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 214, 102, 0.38), transparent 34%),
+    linear-gradient(135deg, #f7ffe2 0%, #e7f5c8 45%, #d8f3dc 100%);
+}
+
+.hero-card,
+.game-shell,
+.rules-card {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  border: 1px solid rgba(94, 119, 54, 0.18);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 24px 70px rgba(55, 82, 39, 0.13);
+  backdrop-filter: blur(14px);
+}
+
+.hero-card {
+  padding: 34px;
+}
+
+.eyebrow {
+  width: fit-content;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #e7f9bf;
+  color: #49651f;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 12px;
+  font-size: clamp(2.4rem, 7vw, 5.5rem);
+  line-height: 0.95;
+  color: #263414;
+  letter-spacing: -0.06em;
+}
+
+h2 {
+  margin-bottom: 8px;
+  color: #263414;
+}
+
+.subtitle {
+  max-width: 760px;
+  margin-bottom: 26px;
+  color: #5d6b42;
+  font-size: 1.1rem;
+  line-height: 1.65;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  padding: 16px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(77, 104, 39, 0.14);
+}
+
+.stat-card span {
+  display: block;
+  margin-bottom: 5px;
+  color: #6e7d50;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.stat-card strong {
+  font-size: 1.8rem;
+  color: #263414;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.primary-button,
+.secondary-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 13px 20px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.primary-button {
+  background: #2f6b22;
+  color: white;
+  box-shadow: 0 14px 24px rgba(47, 107, 34, 0.28);
+}
+
+.secondary-button {
+  background: #ffffff;
+  color: #2f6b22;
+  border: 1px solid rgba(47, 107, 34, 0.22);
+}
+
+.primary-button:hover,
+.secondary-button:hover {
+  transform: translateY(-2px);
+}
+
+.game-shell {
+  position: relative;
+  padding: 24px;
+}
+
+.field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.field-header p {
+  margin-bottom: 0;
+  color: #6e7d50;
+}
+
+.status-pill {
+  padding: 8px 13px;
+  border-radius: 999px;
+  text-transform: capitalize;
+  font-weight: 900;
+  background: #eef7d8;
+  color: #49651f;
+}
+
+.status-pill.playing {
+  background: #e4f8e5;
+  color: #216b2a;
+}
+
+.status-pill.gameOver {
+  background: #fff1d6;
+  color: #925d00;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(58px, 1fr));
+  gap: 14px;
+}
+
+.crop-tile {
+  position: relative;
+  min-height: 108px;
+  border-radius: 22px;
+  border: 1px solid rgba(71, 48, 25, 0.18);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent),
+    #9b6a3c;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.12s ease, opacity 0.12s ease, box-shadow 0.12s ease;
+}
+
+.crop-tile::before {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: 16px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(72, 43, 20, 0.16),
+    rgba(72, 43, 20, 0.16) 8px,
+    rgba(255, 255, 255, 0.07) 8px,
+    rgba(255, 255, 255, 0.07) 16px
+  );
+}
+
+.crop-tile:not(:disabled):hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 14px 24px rgba(78, 48, 22, 0.19);
+}
+
+.crop-tile:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.crop-emoji {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  font-size: clamp(2.1rem, 6vw, 3.6rem);
+  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.18));
+}
+
+.crop-tile.golden {
+  background: linear-gradient(135deg, #d29d2a, #8c6732);
+}
+
+.crop-tile.empty .crop-emoji {
+  opacity: 0.22;
+}
+
+.points-pop {
+  position: absolute;
+  z-index: 2;
+  right: 11px;
+  top: 10px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: white;
+  font-weight: 1000;
+  animation: pop 0.6s ease both;
+}
+
+.points-pop.good {
+  color: #166534;
+}
+
+.points-pop.bad {
+  color: #b91c1c;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.game-over-panel {
+  margin-top: 18px;
+  padding: 22px;
+  border-radius: 24px;
+  background: #fff8e6;
+  border: 1px solid rgba(146, 93, 0, 0.18);
+}
+
+.game-over-panel p {
+  color: #5d6b42;
+}
+
+.rules-card {
+  padding: 24px;
+}
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.rules-grid div {
+  padding: 16px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(94, 119, 54, 0.14);
+}
+
+.rules-grid strong,
+.rules-grid span {
+  display: block;
+}
+
+.rules-grid strong {
+  margin-bottom: 6px;
+  color: #263414;
+}
+
+.rules-grid span {
+  color: #6e7d50;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .game-page {
+    padding: 16px;
+  }
+
+  .hero-card,
+  .game-shell,
+  .rules-card {
+    border-radius: 22px;
+  }
+
+  .hero-card {
+    padding: 24px;
+  }
+
+  .stats-row,
+  .rules-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .field-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .crop-tile {
+    min-height: 82px;
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 440px) {
+  .stats-row,
+  .rules-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
