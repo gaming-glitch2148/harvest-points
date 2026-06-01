@@ -27,36 +27,7 @@ Online matches and the shared leaderboard use Supabase.
 
 1. Create a Supabase project.
 2. Open the SQL editor.
-3. Run this setup SQL:
-
-```sql
-create table if not exists public.rooms (
-  code text primary key,
-  status text not null default 'waiting',
-  started_at bigint,
-  players jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.leaderboard (
-  id bigint generated always as identity primary key,
-  name text not null,
-  score integer not null,
-  mode text not null default 'solo',
-  created_at timestamptz not null default now()
-);
-
-alter table public.rooms enable row level security;
-alter table public.leaderboard enable row level security;
-
-create policy "public rooms read" on public.rooms for select using (true);
-create policy "public rooms insert" on public.rooms for insert with check (true);
-create policy "public rooms update" on public.rooms for update using (true) with check (true);
-
-create policy "public leaderboard read" on public.leaderboard for select using (true);
-create policy "public leaderboard insert" on public.leaderboard for insert with check (true);
-```
-
+3. Run `supabase/sql/setup.sql`, or run `supabase/sql/001_schema.sql` and then `supabase/sql/002_policies.sql`.
 4. In Supabase, enable Realtime for the `rooms` and `leaderboard` tables.
 5. Copy `.env.example` to `.env.local`.
 6. Fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from Supabase project settings.
